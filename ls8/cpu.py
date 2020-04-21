@@ -10,19 +10,19 @@ class CPU:
         """Construct a new CPU."""
         # memory or RAM, 256 bytes (1 byte = 8 bits)
         self.ram = [0] * 256
-        self.register = [0] * 8
+        self.reg = [0] * 8  # register
         self.pc = 0   # program counter (pc)
         self.running = True
-        self.LDI = 0b10000010
-        self.PRN = 0b01000111
-        self.HLT = 0b00000001
+        self.ldi = 0b10000010
+        self.prn = 0b01000111
+        self.hlt = 0b00000001
 
     def ram_read(self, address):
         """
         Returns the value (MDR) stored at a memory address (MAR)
         """
         if address in self.ram:
-            print(self.ram[address])
+            return self.ram[address]
         else:
             print(
                 f"error, address:{address} either out of bounds or not a valid index")
@@ -89,22 +89,22 @@ class CPU:
             ir = self.ram_read(self.pc)
 
             # Read the instruction stored in memory
+            # *ir == instruction reader
             if ir == self.ldi:  # LDI: Load immediate
-                # Read bytes at ram[self.pc + 1]
                 operand_a = self.ram_read(self.pc + 1)
-                # And ram[self.pc + 2]
                 operand_b = self.ram_read(self.pc + 2)
 
                 self.reg[operand_a] = operand_b
 
-            elif ir == self.prn:  # PRN: Print operand
+            elif ir == self.prn:
                 operand = self.ram_read(self.pc + 1)
                 print(self.reg[operand])
-                pc += 2
+                self.pc += 2
 
-            elif ir == self.hlt:  # HLT: Halt
-                running = False
+            elif ir == self.hlt:
+                self.running = False
 
             else:  # Catch invalid / other instruction
-                print("Unrecognized instruction")
+                print(
+                    f"Unrecognized instruction please review instruction:{ir}")
                 self.running = False
