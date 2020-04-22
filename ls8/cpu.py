@@ -1,6 +1,7 @@
 """CPU functionality."""
 
 import sys
+program_filename = sys.argv[1]
 
 
 class CPU:
@@ -9,7 +10,7 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         # memory or RAM, 256 bytes (1 byte = 8 bits)
-        self.ram = [0] * 256
+        self.ram = [None] * 256
         self.reg = [0] * 8  # register
         self.pc = 0   # program counter (pc)
         self.running = True
@@ -21,7 +22,7 @@ class CPU:
         """
         Returns the value (MDR) stored at a memory address (MAR)
         """
-        if address in self.ram:
+        if self.ram[address] is not None:
             return self.ram[address]
         else:
             print(
@@ -38,18 +39,30 @@ class CPU:
 
         # For now, we've just hardcoded a program:
 
-        program = [
-            # From print8.ls8
-            0b10000010,  # LDI R0,8  --> load integer directly into the register
-            0b00000000,  # operand_a  --> address pointer index
-            0b00001000,  # operand_b --> value: 8
-            0b01000111,  # PRN R0 --> print the value
-            0b00000000,  # empty
-            0b00000001,  # HLT  --> halt/stop
-        ]
+        # program = [
+        #     # From print8.ls8
+        #     0b10000010,  # LDI R0,8  --> load integer directly into the register
+        #     0b00000000,  # operand_a  --> address pointer index
+        #     0b00001000,  # operand_b --> value: 8
+        #     0b01000111,  # PRN R0 --> print the value
+        #     0b00000000,  # empty
+        #     0b00000001,  # HLT  --> halt/stop
+        # ]
 
-        for instruction in program:
-            self.ram[address] = instruction
+        # for instruction in program:
+        #     self.ram[address] = instruction
+        #     address += 1
+
+        with open(program_filename) as f:
+            for line in f:
+                line = line.split('#')
+                line = line[0].strip()
+
+                if line == '':
+                    continue
+
+                self.ram[address] = int(line)
+
             address += 1
 
     def alu(self, op, reg_a, reg_b):
@@ -95,7 +108,7 @@ class CPU:
                 operand_b = self.ram_read(self.pc + 2)
 
                 self.reg[operand_a] = operand_b
-
+                self.pc += 3
             elif ir == self.prn:
                 operand = self.ram_read(self.pc + 1)
                 print(self.reg[operand])
@@ -103,8 +116,8 @@ class CPU:
 
             elif ir == self.hlt:
                 self.running = False
-
             else:  # Catch invalid / other instruction
                 print(
                     f"Unrecognized instruction please review instruction:{ir}")
                 self.running = False
+            # self.trace()
