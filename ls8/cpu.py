@@ -14,6 +14,17 @@ class CPU:
         self.reg = [0] * 8  # register
         self.pc = 0   # program counter (pc)
         self.running = True
+        self.function_table = {}
+        self.function_table[0x82] = self.alu
+        self.function_table[0xa3] = self.alu
+        self.function_table[0x65] = self.alu
+        self.function_table[0xa4] = self.alu
+        self.function_table[0xa2] = self.alu
+        self.function_table[0xaa] = self.alu
+        self.function_table[0xab] = self.alu
+        self.function_table[0xac] = self.alu
+        self.function_table[0xad] = self.alu
+        self.function_table[0xa1] = self.alu
         self.ldi = 0b10000010
         self.prn = 0b01000111
         self.hlt = 0b00000001
@@ -42,8 +53,8 @@ class CPU:
         # program = [
         #     # From print8.ls8
         #     0b10000010,  # LDI R0,8  --> load integer directly into the register
-        #     0b00000000,  # operand_a  --> address pointer index
-        #     0b00001000,  # operand_b --> value: 8
+        #     0b00000000,  # op_a  --> address pointer index
+        #     0b00001000,  # op_b --> value: 8
         #     0b01000111,  # PRN R0 --> print the value
         #     0b00000000,  # empty
         #     0b00000001,  # HLT  --> halt/stop
@@ -129,20 +140,21 @@ class CPU:
     def run(self):
         """Run the CPU."""
         while self.running:
-
-            # Read memory address stored in register PC
-            # Store result in Instruction Register
-            ir = self.ram_read(self.pc)
-            operand_a = self.ram_read(self.pc + 1')
-            operand_b = self.ram_read(self.pc + 2')
             # Read the instruction stored in memory
             # *ir == instruction reader
+            ir = hex(self.ram_read(self.pc))
+            op_a = self.ram_read(self.pc + 1')
+            op_b = self.ram_read(self.pc + 2')
+
+            if function_table[ir] is not None:
+                self.function_table[hex(ir)](ir, op_a, op_b)
+
             if ir == self.ldi:  # LDI: Load immediate
-                self.reg[operand_a] = operand_b
+                self.reg[op_a] = op_b
                 self.pc += 3
             elif ir == self.prn:
-                operand = self.ram_read(self.pc + 1)
-                print(self.reg[operand])
+                op = self.ram_read(self.pc + 1)
+                print(self.reg[op])
                 self.pc += 2
 
             elif ir == self.hlt:
