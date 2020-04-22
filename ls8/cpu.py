@@ -67,10 +67,41 @@ class CPU:
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
-
-        if op == "ADD":
+        hex_value = hex(op)
+        if op == 0x82:  # !ADD
             self.reg[reg_a] += self.reg[reg_b]
-        # elif op == "SUB": etc
+        elif op == 0xa3:  # !DIV
+            if self.reg[reg_b] == 0:
+                raise ValueError("cannot divide by 0")
+                self.running = False
+            else:
+                self.reg[reg_a] = self.reg[reg_a] / self.reg[reg_b]
+        elif op == 0x65:  # !INC  (increment by 1)
+            self.reg[reg_a] += 1
+        elif op == 0xa4:  # !MOD
+            if self.reg[reg_b] == 0:
+                raise ValueError("cannot divide by 0")
+                self.running = False
+            else:
+                self.reg[reg_a] = self.reg[reg_a] % self.reg[reg_b]
+        elif op == 0xa2:  # !MUL (multiply)
+            self.reg[reg_a] *= self.reg[reg_b]
+
+        """
+        ?Get clarification on these two ALU functions
+        elif op == 0xaa: #! OR - bitwise
+            self.reg[reg_a] = self.reg[reg_a] | self.reg[reg_b]
+        elif op == 0xab: #! XOR
+            self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
+        """
+
+        elif op == 0xac:  # ! SHL  bitwise shift left
+            self.reg[reg_a] = self.reg[reg_a] << self.reg[reg_b]
+        elif op == 0xad:  # ! SHR  bitwise shift right
+            self.reg[reg_a] = self.reg[reg_a] >> self.reg[reg_b]
+        elif op == 0xa1:  # ! SUB
+            self.reg[reg_a] -= self.reg[reg_b]
+
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -80,7 +111,8 @@ class CPU:
         from run() if you need help debugging.
         """
 
-        print(f"TRACE: %02X | %02X %02X %02X |" % (
+        # print(f"TRACE: %02X | %02X %02X %02X |" % (
+        print(f"TRACE: %s | %s %s %s |" % (
             self.pc,
             # self.fl,
             # self.ie,
@@ -97,16 +129,15 @@ class CPU:
     def run(self):
         """Run the CPU."""
         while self.running:
+
             # Read memory address stored in register PC
             # Store result in Instruction Register
             ir = self.ram_read(self.pc)
-
+            operand_a = self.ram_read(self.pc + 1')
+            operand_b = self.ram_read(self.pc + 2')
             # Read the instruction stored in memory
             # *ir == instruction reader
             if ir == self.ldi:  # LDI: Load immediate
-                operand_a = self.ram_read(self.pc + 1)
-                operand_b = self.ram_read(self.pc + 2)
-
                 self.reg[operand_a] = operand_b
                 self.pc += 3
             elif ir == self.prn:
