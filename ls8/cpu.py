@@ -1,6 +1,7 @@
 """CPU functionality."""
 
 import sys
+from alu import ALU
 program_filename = sys.argv[1]
 
 
@@ -10,24 +11,27 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         # memory or RAM, 256 bytes (1 byte = 8 bits)
-        self.ram = [None] * 256
+        self.running = True
+        self.ram = [0] * 256
         self.reg = [0] * 8  # register
         self.pc = 0   # program counter (pc)
-        self.running = True
+        self.alu = ALU(self.running, self.ram, self.reg)
         self.function_table = {}
-        self.function_table[0x82] = self.alu
-        self.function_table[0xa3] = self.alu
-        self.function_table[0x65] = self.alu
-        self.function_table[0xa4] = self.alu
-        self.function_table[0xa2] = self.alu
-        self.function_table[0xaa] = self.alu
-        self.function_table[0xab] = self.alu
-        self.function_table[0xac] = self.alu
-        self.function_table[0xad] = self.alu
-        self.function_table[0xa1] = self.alu
-        self.ldi = 0b10000010
-        self.prn = 0b01000111
-        self.hlt = 0b00000001
+        self.function_table[0b10000010] = self.ldi
+        self.function_table[0b01000111] = self.prn
+        self.function_table[0b00000001] = self.hlt
+
+        self.function_table[0b10100000] = self.alu.add
+        self.function_table[0b10100011] = self.alu.div
+        self.function_table[0b01100110] = self.alu.dec
+        self.function_table[0b01100101] = self.alu.inc
+        self.function_table[0b10100100] = self.alu.mod
+        self.function_table[0b10100010] = self.alu.mul
+        self.function_table[0b10101010] = self.alu.or_bitwise
+        self.function_table[0b10101011] = self.alu.xor
+        self.function_table[0b10101100] = self.alu.shl
+        self.function_table[0b10101101] = self.alu.shr
+        self.function_table[0b10100001] = self.alu.sub
 
     def ram_read(self, address):
         """
@@ -43,7 +47,16 @@ class CPU:
         """Writes a value (MDR =memory data register ) to a memory address register (MAR)."""
         self.ram[address] = value
 
-    def load(self):
+    def ldi(self, op_a, op_b):  # LDI: load immediate
+        self.reg[op_a] = op_b
+
+    def prn(self, op_a, op_b):  # Print register[x]
+        print(self.reg[op_a])
+
+    def hlt(self, op_a, op_b):  # HALT/STOP
+        self.running = False
+
+    def load(self,):
         """Load a program into memory."""
 
         address = 0
@@ -63,7 +76,7 @@ class CPU:
         # for instruction in program:
         #     self.ram[address] = instruction
         #     address += 1
-
+        global program_filename
         with open(program_filename) as f:
             for line in f:
                 line = line.split('#')
@@ -73,48 +86,7 @@ class CPU:
                     continue
 
                 self.ram[address] = int(line)
-
-            address += 1
-
-    def alu(self, op, reg_a, reg_b):
-        """ALU operations."""
-        hex_value = hex(op)
-        if op == 0x82:  # !ADD
-            self.reg[reg_a] += self.reg[reg_b]
-        elif op == 0xa3:  # !DIV
-            if self.reg[reg_b] == 0:
-                raise ValueError("cannot divide by 0")
-                self.running = False
-            else:
-                self.reg[reg_a] = self.reg[reg_a] / self.reg[reg_b]
-        elif op == 0x65:  # !INC  (increment by 1)
-            self.reg[reg_a] += 1
-        elif op == 0xa4:  # !MOD
-            if self.reg[reg_b] == 0:
-                raise ValueError("cannot divide by 0")
-                self.running = False
-            else:
-                self.reg[reg_a] = self.reg[reg_a] % self.reg[reg_b]
-        elif op == 0xa2:  # !MUL (multiply)
-            self.reg[reg_a] *= self.reg[reg_b]
-
-        """
-        ?Get clarification on these two ALU functions
-        elif op == 0xaa: #! OR - bitwise
-            self.reg[reg_a] = self.reg[reg_a] | self.reg[reg_b]
-        elif op == 0xab: #! XOR
-            self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
-        """
-
-        elif op == 0xac:  # ! SHL  bitwise shift left
-            self.reg[reg_a] = self.reg[reg_a] << self.reg[reg_b]
-        elif op == 0xad:  # ! SHR  bitwise shift right
-            self.reg[reg_a] = self.reg[reg_a] >> self.reg[reg_b]
-        elif op == 0xa1:  # ! SUB
-            self.reg[reg_a] -= self.reg[reg_b]
-
-        else:
-            raise Exception("Unsupported ALU operation")
+                address += 1
 
     def trace(self):
         """
@@ -142,25 +114,23 @@ class CPU:
         while self.running:
             # Read the instruction stored in memory
             # *ir == instruction reader
-            ir = hex(self.ram_read(self.pc))
-            op_a = self.ram_read(self.pc + 1')
-            op_b = self.ram_read(self.pc + 2')
+            ir = self.ram_read(self.pc)
+            # increment by opcode
+            increment_by = 1
+            # also increment by number of variables op code accesses
+            increment_by += (int(str(ir), 2) & 0b11000000) >> 6
+            if int(str(ir), 2) in self.function_table:
+                ram_a = self.ram_read(self.pc + 1)
+                ram_b = self.ram_read(self.pc + 2)
+                op_a = int(str(ram_a), 2)
+                op_b = int(str(ram_b), 2)
+                self.function_table[int(str(ir), 2)](op_a, op_b)
 
-            if function_table[ir] is not None:
-                self.function_table[hex(ir)](ir, op_a, op_b)
-
-            if ir == self.ldi:  # LDI: Load immediate
-                self.reg[op_a] = op_b
-                self.pc += 3
-            elif ir == self.prn:
-                op = self.ram_read(self.pc + 1)
-                print(self.reg[op])
-                self.pc += 2
-
-            elif ir == self.hlt:
-                self.running = False
             else:  # Catch invalid / other instruction
                 print(
-                    f"Unrecognized instruction please review instruction:{ir}")
+                    f"Unrecognized instruction please review instruction:{ir}(binary) {int(str(ir),2)} decimal")
                 self.running = False
+
+            self.pc += increment_by
+
             # self.trace()
