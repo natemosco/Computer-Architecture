@@ -14,12 +14,20 @@ class CPU:
         self.running = True
         self.ram = [0] * 256
         self.reg = [0] * 8  # register
+        self.sp = 7
+        self.reg[self.sp] = 0xf4
         self.pc = 0   # program counter (pc)
         self.alu = ALU(self.running, self.ram, self.reg)
-        self.function_table = {}
-        self.function_table[0b10000010] = self.ldi
+        self.function_table = {}  # * AKA jump table or branch table
         self.function_table[0b01000111] = self.prn
         self.function_table[0b00000001] = self.hlt
+        self.function_table[0b01000101] = self.push
+        self.function_table[0b01000110] = self.pop
+        # * Register functions
+        self.function_table[0b10000010] = self.ldi
+        self.function_table[0b01010100] = self.jmp
+        self.function_table[0b01010000] = self.call
+        self.function_table[0b00010001] = self.ret
 
         self.function_table[0b10100000] = self.alu.add
         self.function_table[0b10100011] = self.alu.div
@@ -50,11 +58,34 @@ class CPU:
     def ldi(self, op_a, op_b):  # LDI: load immediate
         self.reg[op_a] = op_b
 
+    def jmp(self, op_a, op_b):
+        self.pc = self.reg[op_a]
+
+    def call(self, op_a, op_b):
+        self.reg[self.sp] -= 1
+        self.ram[self.reg[self.sp]] = self.pc + 2
+        self.jmp(op_a, op_b)
+
+    def ret(self, op_a, op_b):
+        value = self.ram[self.reg[self.sp]]
+        self.reg[self.sp] += 1
+        self.pc = value
+
     def prn(self, op_a, op_b):  # Print register[x]
         print(self.reg[op_a])
 
     def hlt(self, op_a, op_b):  # HALT/STOP
         self.running = False
+
+    def push(self, op_a, op_b):
+        self.reg[self.sp] -= 1
+        value = self.reg[op_a]
+        self.ram[self.reg[self.sp]] = value
+
+    def pop(self, op_a, op_b):
+        value = self.ram[self.reg[self.sp]]
+        self.reg[op_a] = value
+        self.reg[self.sp] += 1
 
     def load(self,):
         """Load a program into memory."""
@@ -115,10 +146,15 @@ class CPU:
             # Read the instruction stored in memory
             # *ir == instruction reader
             ir = self.ram_read(self.pc)
-            # increment by opcode
-            increment_by = 1
-            # also increment by number of variables op code accesses
-            increment_by += (int(str(ir), 2) & 0b11000000) >> 6
+            ir_int = int(str(ir), 2)
+            if ir_int == 0b01010100 or ir_int == 0b01010000 or ir_int == 0b00010001:
+                # these functions intentionally set pc so no need to increment
+                increment_by = 0
+            else:
+                # increment by opcode AND num of variables needed by opcode
+                increment_by = 1
+                increment_by += (int(str(ir), 2) & 0b11000000) >> 6
+
             if int(str(ir), 2) in self.function_table:
                 ram_a = self.ram_read(self.pc + 1)
                 ram_b = self.ram_read(self.pc + 2)
